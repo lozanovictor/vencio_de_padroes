@@ -2,11 +2,35 @@
 
 # *Affymetrix Human Gene 1.0 ST Array*
 
-
-# Análise dos Dados
-
-## Download dos dados
-```{r}
+## Disciplina 5955016 - Reconhecimento de Padrões
+    
+## Introdução
+    
+#*A exposição ocupacional ao níquel (Ni) esta associada a um aumento do risco de cânceres pulmonares e nasais. 
+#Os compostos de Ni exibem fraca atividade mutagênica, alteram a homeostase epigenética da célula e ativam as vias de sinalização. 
+#No entanto, alterações na expressão gênica associadas à exposição ao Ni foram investigadas apenas in vitro. 
+#Este estudo foi conduzido em uma população chinesa para determinar se a exposição ocupacional ao Ni foi associada com perfis diferenciais de 
+#expressão gênica nas células mononucleares do sangue periférico (PBMCs) dos trabalhadores do refino Ni, 
+#quando comparados à referência.*
+    
+    
+# Métodos
+    
+#*Oito trabalhadores da refinaria e dez "normais" foram selecionados. 
+#O RNA de PBMC foi extra?do e o perfil de expressão gênica foi realizado usando matrizes de exon Affymetrix. 
+#Genes diferencialmente expressos entre os dois grupos foram identificados em uma análise global. 
+#A significância das mudanças de expressão gênica entre as populações exposta e normal foi 
+#avaliada usando uma abordagem de modelo linear com LIMMA, que utiliza uma abordagem empirica de Bayes para gerar estatísticas 
+#t moderadas, levando em consideração os erros padrão e estimativas dobrar as alterações. 
+#Os genes que atingiram os limiares de significância foram incluídos no conjunto de estudos para análise posterior e 
+#são referidos como genes diferencialmente expressos.*
+    
+    
+# Plataform
+    
+#*Affymetrix Human Gene 1.0 ST Array*
+    
+    
 
 # carregar bibliotecas
 
@@ -24,17 +48,15 @@ dat.anno <- pData(gset) #extrai os dados de anotação e salva em um dataframe
 
 
 ## Conferir se os dados estão da forma necessaria
-```{r}
+
 
 dim(dat) #dimensões dos dados
 View(dat.anno) #ve os metadados
 colnames(dat) == rownames(dat.anno) #checa ordenacao, pois em dat.anno as 10 primeiras amostras são de oene e as 8 ultimas de expostos ao Ni
 table(is.na(dat)) #checa se tem NA, pois pode atrapalhar nas analises
+head(dat)
 
-```
 
-## Busca outliers
-```{r}
 # Busca Outliers
 dat.mean <- apply(dat,1,mean) # Calcula a media
 dat.sd <- sqrt(apply(dat,1,var)) # Calcula o desvio padrao
@@ -46,10 +68,9 @@ dat.anno[1:10, "color"] <- "red" #atribui uma cor ao primeiro grupo de amostras 
 dat.anno[11:18, "color"] <- "green" #atribui cor ao segundo grupo - occupational exposure nickel (OEN)
 dat.anno[colnames(dat), "color"] #checa o atribuicao
 
-```
+
 
 ## Normalizacao dos dados
-```{r}
 
 limma::plotMA(dat) # distribuicao original
 abline(h=0, col="dark grey")
@@ -60,88 +81,31 @@ dat.norm<-normalizeCyclicLoess(dat)
 limma::plotMA(dat.norm) #Plot apos normalizacao
 abline(h=0, col="dark grey")
 
-```
-# Podemos ver o conjunto de pontos bem mais homogeneo e alinhado a linha central do grafico, mostrando a importancia da normalizacao
+
+# Podemos ver o conjunto de pontos bem mais homogeneo e alinhado a linha central do grafico, 
+#mostrando a importancia da normalizacao
 
 
 ## Dendograma
-```{r}
 
 colnames(dat.norm) = dat.anno$geo_accession # altera o nome das amostras
-plot(hclust(dist(t(dat.norm), method = "euclidean")),main = "Hclust Dendogram");
+plot(hclust(dist(t(dat.norm), method = "euclidean")),main = "Hclust Dendogram"); #plota o cluster no metodo euclidiano
 
-```
-# Fica claro que 7 das 8 amostras de pessoas expostas ao Ni são agrupadas na mesma categoria e as demais amostras agrupadas separadamente (amostra GSM992710, exposta a Ni no trabalho, é agrupada com as amostras de referencia).
+# Fica claro que 7 das 8 amostras de pessoas expostas ao Ni são agrupadas
+#na mesma categoria e as demais amostras agrupadas separadamente 
+#(amostra GSM992710, exposta a Ni no trabalho,
+#é agrupada com as amostras de referencia).
 
 ## Correlacao
-```{r}
 
 # busca por correlacao
 dat.cor <- cor(dat.norm) # calcula a correlacao
 image (dat.cor, axes=F, main = "Correlation matrix") # gera a imagem da matriz
 
-```
-# Existem poucos genes correlacionados no plot, a maioria relacionando o grupo ee vs ee (controle), mas tambem alguns relacionando os dois grupos. A maioria dos dados tem baixa correlacao.
+# Existem poucos genes correlacionados no plot, a maioria relacionando o grupo ee vs ee (controle),
+#mas tambem alguns relacionando os dois grupos. A maioria dos dados tem baixa correlacao.
 
 ## Plot Profile
-```{r}
-
-selected = c(1:18)
-plot(c(1,ncol(subdata)), range(subdata[selected,]), type='n',
-main="Profile Plot - Genes", xlab="Samples", ylab="Expression")
-for (i in 1:length(selected)) {
-subdata.y = as.numeric(subdata[selected[i],])
-lines(c(1:ncol(subdata)), subdata.y, col=i)
-}
-text(subdata.y, y=NULL, cex = 1)
-
-```
-# Podemos avaliar a variacao de expressao nesse grafico, ficando claro que existem diferencas na expressao entre as amostras e que isso pode estar relacionado com a diferenca dos grupos e sera mais explorada neste estudo.
-
-### Resultados
-
-## Expressao Diferencial
-```{r}
-
-# separacao dos dados pelo indice
-data.ee = data[,11:18]  #ee
-data.oen = data[,1:10]  #oen
-# calculo do pvalue pela funcao abaixo
-t.test.all.genes = function(data, s1, s2){
-    oen_sample = data[colnames(s1)]
-    ee_sample = data[colnames(s2)]
-    oen_sample = as.numeric(oen_sample)
-    ee_sample = as.numeric(ee_sample)
-    t.out = t.test(oen_sample, ee_sample, var.equal=T)
-    out = as.numeric(t.out$p.value)
-    return(out)
-}
-# execucao do teste t
-t.test.run = apply(data ,1, t.test.all.genes, s1=data.oen, s2=data.ee)
-# sumario dos dados, para observar a media, quartis, etc
-summary(t.test.run)
-# histograma
-hist(t.test.run, col="red")
-
-```
-
-## Volcano Plot
-```{r}
-
-oen.m = apply(data.oen, 1, mean, na.rm=T)
-ee.m = apply(data.ee, 1, mean, na.rm=T)
-fold = log2(ee.m/oen.m)
-p.valor = -1*log10(t.test.run)
-plot(range(p.valor), range(fold), type="n", xlab="-1*log(p-value)", ylab="fold change",ylim=c(-0.6,0.6),xlim=c(0,10), main="Volcano Plot")
-points(p.valor, fold, col="black")
-points(p.valor[(p.valor>0.5 & fold>0.4)], fold[(p.valor>0.5 & fold>0.4)], col="red")
-points(p.valor[(p.valor>0.5 & fold< -0.4)], fold[(p.valor>0.5 & fold< -0.4)], col="blue", pch=15)
-abline(v=1)
-abline(h=-0.4)
-abline(h=0.4)
-
-```
-# Podemos ver que varios genes apresentam aumento na expressao e alguns apresentam diminuicao da expressao. Esses genes poderao ser utilizados para caracterizar o grupo estudado.
 
 ## PCA
 ```{r}
@@ -153,7 +117,10 @@ legend(1,1,c("O. exposure - black","E. exposure - red"),lty=c(1,1), col=as.facto
 
 ```
 
-# Podemos ver claramente a tendencia de agrupamento entre as amostras similares, separando o grupo oen, acumulado na parte superior direita do plot (em preto), e o grupo ee, acumulado na parte inferior esquerda (vermelho). Isso nos indica diferencas na expressao dos dois grupos e que provavelmente a exposicao ao Ni no trabalho tem influencia nesse fenomeno.
+# Podemos ver claramente a tendencia de agrupamento entre as amostras similares, 
+#separando o grupo oen, acumulado na parte superior direita do plot (em preto), 
+#e o grupo ee, acumulado na parte inferior esquerda (vermelho). 
+#Isso nos indica diferencas na expressao dos dois grupos e que provavelmente a exposicao ao Ni no trabalho tem influencia nesse fenomeno.
 
 ## K-means
 ```{r}
